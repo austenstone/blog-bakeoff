@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Blog bake-off</title>
+<style>
+:root{color-scheme:dark;--bg:oklch(16% 0.005 260);--fg:oklch(94% 0.005 260);--mute:oklch(65% 0.01 260);--line:oklch(30% 0.01 260)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 ui-sans-serif,system-ui;height:100vh;display:grid;grid-template-rows:auto 1fr}
+header{display:flex;gap:16px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+button{font:inherit;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;min-width:36px}
+button[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.group{display:flex;gap:6px}.spacer{flex:1}.hint{color:var(--mute)}
+main{display:grid;place-items:start center;overflow:auto;padding:16px}
+iframe{border:1px solid var(--line);border-radius:8px;background:#fff;height:calc(100vh - 90px)}
+</style></head><body>
+<header>
+  <div class="group" id="letters"><button data-l="A">A</button><button data-l="B">B</button><button data-l="C">C</button><button data-l="D">D</button><button data-l="E">E</button><button data-l="F">F</button></div>
+  <div class="group"><button data-w="1440">Desktop</button><button data-w="390">Mobile</button></div>
+  <span class="spacer"></span><span class="hint">← → switch · D/M width · open in new tab: <a id="open" style="color:inherit" target="_blank">↗</a></span>
+</header>
+<main><iframe id="f"></iframe></main>
+<script>
+const L=["A","B","C","D","E","F"];let i=0,w=1440;const f=document.getElementById('f');
+function show(){f.src=L[i]+'.html';f.style.width=Math.min(w,innerWidth-32)+'px';document.getElementById('open').href=L[i]+'.html';
+document.querySelectorAll('[data-l]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===L[i]));
+document.querySelectorAll('[data-w]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.w===w));}
+document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.l)i=L.indexOf(b.dataset.l);if(b.dataset.w)w=+b.dataset.w;show();});
+addEventListener('keydown',e=>{if(e.key==='ArrowRight')i=(i+1)%L.length;else if(e.key==='ArrowLeft')i=(i+L.length-1)%L.length;else if(e.key==='d')w=1440;else if(e.key==='m')w=390;else return;show();});
+addEventListener('resize',show);show();
+</script></body></html>

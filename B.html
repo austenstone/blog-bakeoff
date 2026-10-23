@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stop Checking Out Other People's Repos in CI | Austen Stone</title>
+<meta name="description" content="The better question is what does that repo publish? And right behind it, who runs whose tests?">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Red+Hat+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f5f6f8;
+    --well: #e9ecf2;
+    --ink: #1b2230;
+    --slate: #5a6577;
+    --rule: #d6dbe4;
+    --pin: #4b35c9;
+    --pin-soft: #e6e2fb;
+    --red: #c3352b;
+    --green: #1d7a4c;
+
+    --sans: "Schibsted Grotesk", system-ui, sans-serif;
+    --serif: "Literata", Georgia, serif;
+    --mono: "Red Hat Mono", ui-monospace, monospace;
+
+    --measure: 40rem;
+    --gutter: 8.5rem;
+    --wide: 52rem;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 1.1875rem/1.68 var(--serif);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--pin-soft); color: var(--ink); }
+
+  a { color: inherit; text-decoration-color: color-mix(in srgb, var(--pin) 55%, transparent); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+  a:hover { color: var(--pin); }
+  :focus-visible { outline: 2.5px solid var(--pin); outline-offset: 3px; border-radius: 3px; }
+
+  .visually-num { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .skip { position: absolute; left: -9999px; }
+  .skip:focus { left: 1rem; top: 1rem; background: var(--ink); color: var(--paper); padding: .5rem .8rem; z-index: 10; }
+
+  .frame { max-width: 72rem; margin: 0 auto; padding: 0 2.5rem; }
+
+  /* Site chrome */
+  .site {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-top: 1.75rem; padding-bottom: 1.75rem;
+    font-family: var(--sans);
+  }
+  .site__name { font-weight: 800; font-size: 1.125rem; letter-spacing: -.01em; text-decoration: none; }
+  .site nav { display: flex; gap: 1.75rem; font-size: 1rem; font-weight: 500; }
+  .site nav a { text-decoration: none; color: var(--slate); }
+  .site nav a:hover, .site nav a[aria-current] { color: var(--ink); }
+  .site nav a[aria-current] { box-shadow: inset 0 -2px 0 var(--pin); }
+
+  /* Hero */
+  .hero { padding-top: clamp(3rem, 9vw, 7.5rem); padding-bottom: clamp(2.5rem, 6vw, 4.5rem); }
+  .hero h1 {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: clamp(2.75rem, 7.4vw, 6.4rem);
+    line-height: .94;
+    letter-spacing: -.035em;
+    margin: 0;
+    max-width: 11.5ch;
+    text-wrap: balance;
+  }
+  .byline {
+    margin-top: clamp(2rem, 4vw, 3.25rem);
+    display: grid;
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+    gap: .25rem 3.5rem;
+    font-family: var(--sans);
+    font-size: .9375rem;
+    line-height: 1.45;
+    color: var(--slate);
+  }
+  .byline b { display: block; color: var(--ink); font-weight: 600; }
+  .byline .tags a { white-space: nowrap; display: inline-block; text-decoration: none; color: var(--pin); font-weight: 500; }
+  .byline .tags a + a { margin-left: .9rem; }
+
+  /* Article grid */
+  .post {
+    display: grid;
+    grid-template-columns: var(--gutter) minmax(0, var(--measure)) 1fr;
+    padding-bottom: 6rem;
+  }
+  .post > * { grid-column: 2; }
+  .post > .wide { grid-column: 2 / 4; max-width: var(--wide); }
+  .post > .full { grid-column: 1 / 4; }
+
+  .post p { margin: 0 0 1.35em; hanging-punctuation: first; }
+  .post .lede { font-size: 1.4375rem; line-height: 1.55; margin-bottom: 1.2em; }
+  .post strong { font-weight: 600; }
+
+  .post h2 {
+    position: relative;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: clamp(1.75rem, 2.6vw, 2.25rem);
+    line-height: 1.12;
+    letter-spacing: -.02em;
+    margin: 2.8em 0 .7em;
+    text-wrap: balance;
+  }
+  .post h2 .n {
+    position: absolute;
+    right: calc(100% + 1.5rem);
+    top: -.08em;
+    font-weight: 900;
+    font-size: 1.9em;
+    line-height: 1;
+    letter-spacing: -.05em;
+    color: var(--pin);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .post ul { list-style: none; padding: 0; margin: 0 0 1.6em; }
+  .post li { position: relative; padding-left: 1.4rem; margin-bottom: .95em; }
+  .post li::before {
+    content: ""; position: absolute; left: 0; top: .72em;
+    width: .5rem; height: .5rem; border-radius: 1px;
+    background: var(--pin); transform: rotate(45deg);
+  }
+  .post li strong { font-family: var(--sans); font-weight: 700; font-size: .95em; letter-spacing: -.005em; }
+
+  /* Inline code */
+  :not(pre) > code {
+    font-family: var(--mono);
+    font-size: .84em;
+    font-weight: 500;
+    background: var(--well);
+    padding: .1em .36em;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  /* Code blocks */
+  .code {
+    position: relative;
+    margin: 1.9rem 0 2.2rem;
+    background: var(--well);
+    border-radius: 10px;
+  }
+  .code pre {
+    margin: 0;
+    padding: 1.35rem 1.5rem 1.4rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: .875rem;
+    line-height: 1.7;
+    tab-size: 2;
+    color: var(--ink);
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+  .code pre:focus-visible { outline-offset: -3px; border-radius: 10px; }
+  .code .k { color: #3c4a63; font-weight: 600; }
+  .code .s { color: var(--green); }
+  .code .x { color: var(--pin); background: var(--pin-soft); border-radius: 3px; box-shadow: 0 0 0 1px var(--pin-soft); }
+  .code .v { color: var(--pin); font-weight: 600; }
+  .code .f { color: #8a4b0f; }
+  .code .c { color: var(--slate); font-weight: 600; }
+  .copy {
+    position: absolute; top: .6rem; right: .6rem;
+    font: 600 .8125rem/1 var(--sans);
+    color: var(--slate);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: .45rem .7rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s, color .15s;
+  }
+  .code:hover .copy, .copy:focus-visible, .copy.done { opacity: 1; }
+  .copy:hover { color: var(--ink); }
+  .copy.done { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, var(--rule)); }
+  @media (hover: none) { .copy { opacity: 1; } }
+
+  /* Diagram */
+  .diagram {
+    margin: 1.5rem 0 2.75rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+  .panel {
+    margin: 0;
+    padding: 1.4rem 1.4rem 1.2rem;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 0 0 1px var(--rule);
+  }
+  .panel--bad { background: #fbf4f3; box-shadow: 0 0 0 1px #eed3cf; }
+  .panel svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .panel figcaption {
+    margin-top: 1rem;
+    font-family: var(--sans);
+    font-size: .9375rem;
+    line-height: 1.4;
+    color: var(--slate);
+  }
+  .panel figcaption b { display: block; color: var(--ink); font-size: 1.0625rem; font-weight: 700; margin-bottom: .15rem; }
+  .node rect { fill: #fff; stroke: var(--ink); stroke-width: 1.5; }
+  .node text, .pkg text, .tag { font-family: var(--mono); font-size: 12.5px; font-weight: 500; fill: var(--ink); }
+  .tangle path { fill: none; stroke: var(--red); stroke-width: 1.4; stroke-dasharray: 4 4; opacity: .6; }
+  .tangle .tag { fill: var(--red); font-size: 11px; font-weight: 600; }
+  .pat rect { fill: var(--red); }
+  .pat text { fill: #fff; font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .flow path { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+  .flow .pinline { stroke: var(--pin); }
+  .pkg rect { fill: var(--pin-soft); stroke: var(--pin); stroke-width: 1.5; }
+  .pkg text { fill: var(--pin); font-weight: 600; }
+  .flow .tag { font-size: 11px; fill: var(--slate); }
+  .flow .tag.p { fill: var(--pin); font-weight: 600; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .js .diagram .tangle path { opacity: 0; }
+    .js .diagram .flow path { stroke-dasharray: 220; stroke-dashoffset: 220; }
+    .js .diagram.on .tangle path { animation: jitter .5s calc(var(--i) * 70ms) cubic-bezier(.3,.7,.4,1) forwards; }
+    .js .diagram.on .flow path { animation: draw .7s calc(.9s + var(--i) * 120ms) cubic-bezier(.4,0,.2,1) forwards; }
+    @keyframes jitter { 0% { opacity: 0; transform: translate(0, 6px); } 100% { opacity: .6; transform: none; } }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+  }
+
+  /* Closing section */
+  .post h2.end { margin-top: 3.2em; padding-top: 1.6em; border-top: 2px solid var(--ink); }
+
+  .foot {
+    border-top: 1px solid var(--rule);
+    padding-top: 2rem; padding-bottom: 3rem;
+    display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    font-family: var(--sans); font-size: .9375rem; color: var(--slate);
+  }
+  .foot a { text-decoration: none; }
+  .foot nav { display: flex; gap: 1.5rem; }
+
+  @media (max-width: 1100px) {
+    :root { --gutter: 5.5rem; }
+    .post h2 .n { right: calc(100% + 1rem); font-size: 1.5em; }
+  }
+
+  @media (max-width: 860px) {
+    .post { grid-template-columns: minmax(0, 1fr); }
+    .post > *, .post > .wide, .post > .full { grid-column: 1; max-width: none; }
+    .post h2 .n { position: static; display: block; font-size: 1.6em; margin-bottom: .2rem; }
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 1.0625rem; line-height: 1.66; }
+    .frame { padding: 0 1.25rem; }
+    .site { padding-top: 1.25rem; padding-bottom: 1.25rem; }
+    .hero h1 { letter-spacing: -.03em; line-height: .98; }
+    .byline { grid-template-columns: 1fr 1fr; gap: 1rem 1.5rem; }
+    .byline .who { grid-column: 1 / -1; }
+    .hero { padding-bottom: 3rem; }
+    .post .lede { font-size: 1.25rem; }
+    .code { margin-left: -1.25rem; margin-right: -1.25rem; border-radius: 0; }
+    .code pre { font-size: .8125rem; padding: 1.15rem 1.25rem; line-height: 1.65; }
+    .diagram { grid-template-columns: 1fr; }
+    .panel { padding: 1.1rem; }
+  }
+
+  @media print {
+    body { background: #fff; }
+    .site nav, .copy, .foot nav { display: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#post">Skip to post</a>
+
+<header class="frame site">
+  <a class="site__name" href="#">Austen Stone</a>
+  <nav aria-label="Site">
+    <a href="#" aria-current="page">Blog</a>
+    <a href="#">Projects</a>
+  </nav>
+</header>
+
+<main id="post">
+  <article>
+    <header class="frame hero">
+      <h1>Stop Checking Out Other People's Repos in CI</h1>
+      <div class="byline">
+        <div class="who"><b>Austen Stone</b>Senior Solutions Engineer @ GitHub</div>
+        <div><b><time datetime="2026-10-13">October 13, 2026</time></b>10 min read</div>
+        <div class="tags"><b>Tags</b><a href="#">GitHub Actions</a><a href="#">Development</a></div>
+      </div>
+    </header>
+
+    <div class="frame post">
+      <p class="lede">Almost every enterprise CI conversation I have starts with the same question: "my build needs code from another repo, how do I get access to it?"</p>
+
+      <p>That's the wrong question. And answering it is how you end up with an org-wide PAT checking out 14 repos at <code>main</code> on every build.</p>
+
+      <p>The better question is <strong>what does that repo publish?</strong> And right behind it, <strong>who runs whose tests?</strong> Answer those two and the rest of your pipeline design mostly falls out.</p>
+
+      <h2>The Default Everyone Builds</h2>
+
+      <p>It usually looks like this:</p>
+
+<div class="code wide"><pre data-lang="yaml"><code>- uses: actions/checkout@v7
+  with:
+    repository: acme/shared-lib
+    ref: main
+    token: ${{ secrets.ORG_WIDE_PAT }}
+    path: shared-lib</code></pre></div>
+
+      <p>Multiply by however many repos your build "needs." What you've actually built:</p>
+
+      <ul>
+        <li><strong>Source coupling.</strong> Your build depends on whatever happens to be on someone else's <code>main</code> right now. They merge, you break, and nobody on their team ever sees the red.</li>
+        <li><strong>A non-reproducible build.</strong> Rerun yesterday's job and you get different code. Good luck bisecting.</li>
+        <li><strong>A long-lived secret with way too much reach.</strong> That PAT is tied to a person (or a "bot" account someone shares), can usually read far more than this one build needs, and lives forever. Exactly the kind of credential that shows up in supply chain incidents.</li>
+      </ul>
+
+      <p>None of this is specific to GitHub Actions. You'd build the same mess in Jenkins.</p>
+
+      <h2>Couple to Artifacts and Contracts</h2>
+
+      <div class="diagram full" role="group" aria-label="Diagram comparing source coupling with artifact coupling">
+        <figure class="panel panel--bad">
+          <svg viewBox="0 0 360 285" role="img" aria-labelledby="d1t">
+            <title id="d1t">Four repos, each checking out every other repo's source at main using an org-wide PAT.</title>
+            <g class="tangle">
+              <path d="M85 47 Q180 75 275 47" style="--i:0"/>
+              <path d="M85 47 Q43 140 85 233" style="--i:1"/>
+              <path d="M85 47 Q141 180 275 233" style="--i:2"/>
+              <path d="M275 47 Q180 19 85 47" style="--i:3"/>
+              <path d="M275 47 Q151 110 85 233" style="--i:4"/>
+              <path d="M275 47 Q219 140 275 233" style="--i:5"/>
+              <path d="M85 233 Q127 140 85 47" style="--i:6"/>
+              <path d="M85 233 Q209 170 275 47" style="--i:7"/>
+              <path d="M85 233 Q180 289 275 233" style="--i:8"/>
+              <path d="M275 233 Q220 100 85 47" style="--i:9"/>
+              <path d="M275 233 Q317 140 275 47" style="--i:10"/>
+              <path d="M275 233 Q180 205 85 233" style="--i:11"/>
+              <text class="tag" x="180" y="17" text-anchor="middle">@main</text>
+              <text class="tag" x="10" y="144">@main</text>
+              <text class="tag" x="350" y="144" text-anchor="end">@main</text>
+              <text class="tag" x="180" y="281" text-anchor="middle">@main</text>
+            </g>
+            <g class="pat"><rect x="117" y="128" width="126" height="22" rx="4"/><text x="180" y="143" text-anchor="middle">ORG_WIDE_PAT</text></g>
+            <g class="node"><rect x="20" y="30" width="130" height="34" rx="6"/><text x="85" y="51" text-anchor="middle">shared-lib</text></g>
+            <g class="node"><rect x="210" y="30" width="130" height="34" rx="6"/><text x="275" y="51" text-anchor="middle">shared-proto</text></g>
+            <g class="node"><rect x="20" y="216" width="130" height="34" rx="6"/><text x="85" y="237" text-anchor="middle">checkout-service</text></g>
+            <g class="node"><rect x="210" y="216" width="130" height="34" rx="6"/><text x="275" y="237" text-anchor="middle">web-app</text></g>
+          </svg>
+          <figcaption><b>Source at main</b>Every repo checks out every other repo's source.</figcaption>
+        </figure>
+
+        <figure class="panel">
+          <svg viewBox="0 0 360 285" role="img" aria-labelledby="d2t">
+            <title id="d2t">Each repo builds, tests, and publishes a versioned package. Consumers pin a version.</title>
+            <g class="flow">
+              <path d="M85 64 V112" style="--i:0"/>
+              <path d="M275 64 V112" style="--i:1"/>
+              <path class="pinline" d="M85 146 C85 180 85 190 85 216" style="--i:2"/>
+              <path class="pinline" d="M85 146 C85 185 275 175 275 216" style="--i:3"/>
+              <path class="pinline" d="M275 146 C275 185 85 175 85 216" style="--i:4"/>
+              <path class="pinline" d="M275 146 C275 180 275 190 275 216" style="--i:5"/>
+              <text class="tag" x="93" y="92">build, test, publish</text>
+              <text class="tag" x="283" y="92">publish</text>
+            </g>
+            <g class="node"><rect x="20" y="30" width="130" height="34" rx="6"/><text x="85" y="51" text-anchor="middle">shared-lib</text></g>
+            <g class="node"><rect x="210" y="30" width="130" height="34" rx="6"/><text x="275" y="51" text-anchor="middle">shared-proto</text></g>
+            <g class="pkg"><rect x="20" y="112" width="130" height="34" rx="17"/><text x="85" y="133" text-anchor="middle">2.4.0</text></g>
+            <g class="pkg"><rect x="210" y="112" width="130" height="34" rx="17"/><text x="275" y="133" text-anchor="middle">1.9.0</text></g>
+            <g class="node"><rect x="20" y="216" width="130" height="34" rx="6"/><text x="85" y="237" text-anchor="middle">checkout-service</text></g>
+            <g class="node"><rect x="210" y="216" width="130" height="34" rx="6"/><text x="275" y="237" text-anchor="middle">web-app</text></g>
+            <g class="flow"><text class="tag p" x="180" y="275" text-anchor="middle">consumers pin a version</text></g>
+          </svg>
+          <figcaption><b>Versioned packages</b>Each repo publishes a package. Consumers pin it.</figcaption>
+        </figure>
+      </div>
+
+      <p>Left side, every repo is part of every other repo's build. Right side, each repo has one job: build, test, publish a versioned thing. Consumers pin a version. Upgrades are PRs you can review and revert.</p>
+
+      <p>Honestly this is also why monorepo vs polyrepo is mostly the wrong argument. Big monorepos work because everything builds and tests together at one commit. Polyrepos work when repos talk through versioned contracts. What doesn't work is polyrepos pretending to be a monorepo by cloning each other at <code>main</code>. You get the costs of both and the benefits of neither.</p>
+
+      <h2><span class="n" aria-hidden="true">1</span><span class="visually-num">1. </span>Consume Artifacts, Not Source</h2>
+
+      <p>If another team's code is something you build against, it should be a package. npm, Maven, NuGet, a container image, whatever fits. GitHub Packages and the Container registry handle this fine, and the producer's workflow can push with <code>GITHUB_TOKEN</code> and <code>packages: write</code>. Consumers read with <code>GITHUB_TOKEN</code> too, once you grant their repos access to the package. No extra credentials.</p>
+
+      <p>Consumers pin an exact version and let Dependabot open the bump PRs. Point it at your private registries and group the updates so you don't drown in them. Now every upgrade runs your full CI before it lands, which is the whole point.</p>
+
+      <p>Sometimes you do need source (codegen, a vendored tool, whatever). Fine. Pin it to a full commit SHA, and if it matters enough, vendor it into your repo. Large monorepos do exactly this with third-party code for a reason. Never float on <code>main</code>.</p>
+
+      <h2><span class="n" aria-hidden="true">2</span><span class="visually-num">2. </span>Auth Without PATs</h2>
+
+      <p>Once you're consuming artifacts, most cross-repo access disappears. For what's left, stop minting PATs.</p>
+
+      <ul>
+        <li><strong>Sharing actions and reusable workflows</strong> doesn't need a token at all. Turn on access for private repos or internal repos across your enterprise in the repo's Actions settings.</li>
+        <li><strong>Cloud credentials</strong> go through OIDC. No stored keys.</li>
+        <li><strong>Actual cross-repo API calls</strong> use a GitHub App installation token, scoped to the exact repos and permissions the job needs:</li>
+      </ul>
+
+<div class="code wide"><pre data-lang="yaml"><code>- uses: actions/create-github-app-token@v3
+  id: app-token
+  with:
+    client-id: ${{ vars.CI_APP_CLIENT_ID }}
+    private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+    owner: ${{ github.repository_owner }}
+    repositories: shared-proto
+    permission-contents: read</code></pre></div>
+
+      <p>Yes, the private key is still a secret. But it isn't tied to a human, it can only mint tokens that expire in an hour, and every token is scoped to what you wrote down in the workflow. That's a much smaller blast radius than a PAT someone made in 2021 with <code>repo</code> scope.</p>
+
+      <h2><span class="n" aria-hidden="true">3</span><span class="visually-num">3. </span>Platform Owns the Pipeline</h2>
+
+      <p>If 400 repos each hand-roll their own build, every pipeline fix is 400 PRs.</p>
+
+      <p>Put the golden path in a central repo as reusable workflows. App repos call it with inputs and stay tiny:</p>
+
+<div class="code wide"><pre data-lang="yaml"><code>name: CI
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  ci:
+    uses: acme/platform-workflows/.github/workflows/node-service.yml@v3
+    with:
+      node-version: 24</code></pre></div>
+
+      <p>The platform team versions it, ships improvements once, and every repo gets them on the next bump. For the stuff that isn't optional (security scans, provenance, policy checks), enforce it with org-level ruleset workflows so it runs whether the app repo calls it or not.</p>
+
+      <h2><span class="n" aria-hidden="true">4</span><span class="visually-num">4. </span>Flip Integration Testing Around</h2>
+
+      <p>This is the one that changes the most, and the one almost nobody does.</p>
+
+      <p>The default: the consumer clones its dependencies and runs integration tests. So when <code>shared-lib</code> merges a breaking change, the failure shows up later, in somebody else's repo, owned by somebody who didn't make the change.</p>
+
+      <p>Flip it. <strong>The dependency triggers the consumer's tests.</strong> When a PR opens on <code>shared-lib</code>, it publishes a preview version (say <code>2.4.0-pr.123</code>) and kicks off each known consumer's test suite with <code>workflow_dispatch</code> or <code>repository_dispatch</code>. The consumer runs its tests against that preview, then reports back by creating a check run on the producer's PR.</p>
+
+      <p>The producer side is one step with an App token that has <code>permission-actions: write</code> on the consumer:</p>
+
+<div class="code wide"><pre data-lang="sh"><code>gh workflow run contract-tests.yml -R acme/checkout-service \
+  -f producer-repo=acme/shared-lib \
+  -f producer-sha="$PR_HEAD_SHA" \
+  -f version=2.4.0-pr.123</code></pre></div>
+
+      <p>The consumer side:</p>
+
+<div class="code wide"><pre data-lang="yaml"><code>name: Contract tests
+on:
+  workflow_dispatch:
+    inputs:
+      producer-repo:
+        required: true
+      producer-sha:
+        required: true
+      version:
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://npm.pkg.github.com
+      - run: npm ci
+      - run: npm install "@acme/shared-lib@$VERSION"
+        env:
+          VERSION: ${{ inputs.version }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npm test
+
+      - uses: actions/create-github-app-token@v3
+        if: ${{ !cancelled() }}
+        id: app-token
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: shared-lib
+          permission-checks: write
+      - if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PRODUCER_REPO: ${{ inputs.producer-repo }}
+          PRODUCER_SHA: ${{ inputs.producer-sha }}
+          CONCLUSION: ${{ job.status == 'success' &amp;&amp; 'success' || 'failure' }}
+        run: |
+          gh api "repos/$PRODUCER_REPO/check-runs" \
+            -f name="consumer / $GITHUB_REPOSITORY" \
+            -f head_sha="$PRODUCER_SHA" \
+            -f status=completed \
+            -f conclusion="$CONCLUSION" \
+            -f details_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"</code></pre></div>
+
+      <p>Why an App and not <code>GITHUB_TOKEN</code>? <code>GITHUB_TOKEN</code> is scoped to the repo it runs in, and write access to checks is only available to GitHub Apps. Bonus: make that check required on the producer and set your App as the expected source, so nobody can fake it with a random status.</p>
+
+      <p>Now the breaking change goes red <strong>on the PR that introduced it</strong>, in front of the person who wrote it, before it merges. That's the entire value of integration testing, delivered to the right person.</p>
+
+      <h2><span class="n" aria-hidden="true">5</span><span class="visually-num">5. </span>Make the Feedback Loop Fast</h2>
+
+      <p>All of this only works if CI is fast enough that people don't route around it.</p>
+
+      <ul>
+        <li><strong>Merge queue.</strong> Add the <code>merge_group</code> trigger and let the queue test PRs together against the real tip of <code>main</code>. GitHub runs its own large monorepo on it: over 500 engineers merge 2,500 PRs a month through merge queue, with a 33% drop in average time to ship.</li>
+        <li><strong>Don't redo green work.</strong> Path filters, caching, and build tools that know what changed. If nothing in a service changed, don't test it again.</li>
+        <li><strong>Bigger machines.</strong> Larger GitHub-hosted runners are a <code>runs-on</code> change. Your engineers waiting 20 minutes on a 2-core box costs way more than the compute.</li>
+      </ul>
+
+      <h2>Microservices: Same Idea, Runtime Edition</h2>
+
+      <p>Microservices make this more obvious, not less. Services talk to each other at <strong>runtime</strong>, over the network. There's no reason one service's build should touch another service's source. Each one should build, test, and deploy on its own.</p>
+
+      <p>What they share is a contract, so treat the contract like the artifact:</p>
+
+      <ul>
+        <li><strong>Publish API contracts as packages.</strong> Protobuf or OpenAPI specs, versioned and pinned like any other dependency.</li>
+        <li><strong>Break the build in the producer's PR.</strong> <code>buf breaking</code> for protobuf, or consumer-driven contracts with Pact, so removing a field fails CI on the service that removed it.</li>
+        <li><strong>Change schemas in two steps.</strong> Expand, migrate, contract. Add the new field, move consumers over, then remove the old one.</li>
+        <li><strong>Decouple deploy from release.</strong> Ship dark behind feature flags so deploying a service doesn't mean every other service has to be ready.</li>
+        <li><strong>Ephemeral environments for E2E smoke.</strong> Spin up a real environment per PR or per merge group for a handful of end-to-end checks, gated with environments. Not on every push, and not as your main line of defense.</li>
+      </ul>
+
+      <p>And the honest diagnosis. If service A can't ship unless B and C ship with it, that's a distributed monolith. A monolith with network hops in the middle. Either fix the contracts so they can ship independently, or put them in one repo and build them together. Separate repos only pay for themselves if the things in them actually deploy separately.</p>
+
+      <h2 class="end">Start Here</h2>
+
+      <p>Pick your worst build, the one with the most <code>repository:</code> lines in a checkout step. For each one, ask what that repo should be publishing instead. That list is your migration plan.</p>
+    </div>
+  </article>
+</main>
+
+<footer class="frame foot">
+  <span>© 2026 Austen Stone</span>
+  <nav aria-label="Footer">
+    <a href="#">Blog</a>
+    <a href="#">Projects</a>
+  </nav>
+</footer>
+
+<script>
+  document.documentElement.classList.add('js');
+
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const wrap = (cls, s) => `<span class="${cls}">${esc(s)}</span>`;
+
+  const inline = (text) => {
+    const re = /(\$\{\{.*?\}\})|("[^"]*")|(@v\d+\b|\b\d+\.\d+\.\d+(?:-[\w.]+)?)|(\s-[fR]\b)|(\$[A-Z_]+)/g;
+    let out = '', last = 0, m;
+    while ((m = re.exec(text))) {
+      out += esc(text.slice(last, m.index));
+      if (m[1]) out += wrap('x', m[1]);
+      else if (m[2]) out += `<span class="s">${inline(m[2].slice(1, -1)).replace(/^/, '"')}"</span>`;
+      else if (m[3]) out += wrap('v', m[3]);
+      else if (m[4]) out += wrap('f', m[4]);
+      else if (m[5]) out += wrap('x', m[5]);
+      last = re.lastIndex;
+    }
+    return out + esc(text.slice(last));
+  };
+
+  const yamlLine = (line) => {
+    const m = line.match(/^(\s*(?:-\s+)?)([\w.-]+)(:)(.*)$/);
+    if (!m) return inline(line);
+    return esc(m[1]) + wrap('k', m[2]) + esc(m[3]) + inline(m[4]);
+  };
+
+  const shLine = (line) => {
+    const m = line.match(/^(\s*)(gh)(\s.*)$/);
+    return m ? esc(m[1]) + wrap('c', m[2]) + inline(m[3]) : inline(line);
+  };
+
+  document.querySelectorAll('.code pre').forEach((pre) => {
+    const code = pre.querySelector('code');
+    const raw = code.textContent;
+    const lang = pre.dataset.lang;
+    let inRun = false, runIndent = 0;
+    code.innerHTML = raw.split('\n').map((line) => {
+      if (lang === 'sh') return shLine(line);
+      const indent = line.match(/^\s*/)[0].length;
+      if (inRun && line.trim() && indent <= runIndent) inRun = false;
+      if (inRun) return shLine(line);
+      if (/\brun: \|\s*$/.test(line)) { inRun = true; runIndent = indent; }
+      return yamlLine(line);
+    }).join('\n');
+
+    pre.tabIndex = 0;
+    const btn = document.createElement('button');
+    btn.className = 'copy';
+    btn.type = 'button';
+    btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(raw);
+        btn.textContent = 'Copied';
+        btn.classList.add('done');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1600);
+      } catch {
+        btn.textContent = 'Select and copy';
+      }
+    });
+    pre.parentElement.append(btn);
+  });
+
+  const diagram = document.querySelector('.diagram');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { diagram.classList.add('on'); io.disconnect(); }
+    }, { threshold: 0.35 });
+    io.observe(diagram);
+  } else {
+    diagram.classList.add('on');
+  }
+</script>
+</body>
+</html>

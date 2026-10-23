@@ -1,0 +1,712 @@
+<!doctype html>
+<!--
+THESIS: The post argues for artifacts and contracts over borrowed source, so the page is set as a shipping manifest: a bill-of-lading header, ruled carbon-copy code sheets, and a ledger of line items. It refuses the dark-mode neon dev blog and the cream editorial serif.
+OWN-WORLD: White form stock, near-black ink in 1px and 2px form rules, canary carbon-copy sheets for code, one carbon-blue accent for links, pins, and state. Archivo across its width axis (expanded for markings, condensed for field captions), JetBrains Mono only for code.
+STORY: The reader learns why cross-repo checkouts break, then copies the YAML that replaces them, top to bottom, without losing their place.
+FIRST VIEWPORT: Site line, then the title at container-marking scale spanning the sheet, then a boxed field row (author, role, date, length, tags). The opening paragraph starts above the fold.
+FORM: Grounded direction 3 of 7 (logistics paperwork / shipping manifest), staging: linear long read with a sticky manifest index. Seed 9b9a2ec7.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stop Checking Out Other People's Repos in CI · Austen Stone</title>
+<meta name="description" content="Stop checking out other people's repos in CI. Couple to artifacts and contracts instead.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #fdfdfb;
+  --ink: #17191e;
+  --ink-2: #4a4d55;
+  --rule: #d9d7cf;
+  --carbon: #1f3fa3;
+  --carbon-wash: #e8ecf8;
+  --canary: #faf3d2;
+  --canary-deep: #f2e7b4;
+  --canary-ink: #6f6649;
+  --rust: #9a3412;
+  --sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --measure: 42.5rem;
+  --gutter: clamp(1.25rem, 4vw, 3rem);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 1.5rem; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 1.1875rem;
+  line-height: 1.65;
+  font-variation-settings: "wdth" 100;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--carbon); text-underline-offset: 0.18em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--carbon); outline-offset: 3px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 1rem; top: -4rem; background: var(--ink); color: var(--paper); padding: .5rem .875rem; z-index: 10; }
+.skip:focus { top: 1rem; }
+
+.wrap { max-width: 82rem; margin: 0 auto; padding: 0 var(--gutter); }
+
+.site { border-bottom: 2px solid var(--ink); }
+.site .wrap { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; padding-top: 1.125rem; padding-bottom: 1rem; }
+.brand {
+  color: var(--ink); text-decoration: none;
+  font-weight: 800; font-size: 1.125rem; letter-spacing: -0.01em;
+  font-variation-settings: "wdth" 125;
+}
+.site nav ul { display: flex; gap: 1.75rem; list-style: none; margin: 0; padding: 0; }
+.site nav a {
+  color: var(--ink); text-decoration: none; font-size: 1rem; font-weight: 500;
+  padding: .25rem 0; border-bottom: 2px solid transparent;
+}
+.site nav a:hover { border-bottom-color: var(--ink); }
+.site nav a[aria-current="page"] { border-bottom-color: var(--carbon); color: var(--carbon); }
+
+.masthead { padding-top: clamp(2.5rem, 6vw, 5rem); }
+h1 {
+  margin: 0 0 clamp(2rem, 4vw, 3rem);
+  font-size: clamp(2.375rem, 5.6vw, 5.5rem);
+  line-height: .98;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  font-variation-settings: "wdth" 118;
+  max-width: 17ch;
+  text-wrap: balance;
+}
+.lading {
+  display: grid;
+  grid-template-columns: 1.1fr 1.5fr 1.1fr .8fr 1.6fr;
+  border: 1px solid var(--ink);
+  margin: 0;
+}
+.lading > div { padding: .625rem .875rem .75rem; border-right: 1px solid var(--ink); min-width: 0; }
+.lading > div:last-child { border-right: 0; }
+.lading dt {
+  font-size: .6875rem; line-height: 1.2; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink-2); font-variation-settings: "wdth" 75; margin-bottom: .3rem;
+}
+.lading dd { margin: 0; font-size: 1rem; line-height: 1.35; font-weight: 500; }
+.lading ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .375rem; }
+.lading li { font-size: .875rem; line-height: 1; padding: .3rem .5rem; border: 1px solid var(--ink); font-weight: 500; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 13.5rem minmax(0, var(--measure)) minmax(0, 1fr);
+  column-gap: clamp(2.5rem, 5vw, 5rem);
+  padding-top: clamp(2.5rem, 5vw, 4rem);
+  padding-bottom: 6rem;
+}
+.manifest { grid-column: 1; }
+.manifest-inner { position: sticky; top: 1.5rem; }
+.manifest h2 {
+  margin: 0 0 .75rem; padding-bottom: .5rem; border-bottom: 2px solid var(--ink);
+  font-size: .6875rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  font-variation-settings: "wdth" 75; color: var(--ink-2);
+}
+.manifest ol { list-style: none; margin: 0; padding: 0; }
+.manifest li { border-bottom: 1px solid var(--rule); }
+.manifest a {
+  display: grid; grid-template-columns: 1.5rem 1fr; gap: .5rem; align-items: baseline;
+  padding: .5rem 0; color: var(--ink-2); text-decoration: none; font-size: .875rem; line-height: 1.35;
+  transition: color .18s ease-out;
+}
+.manifest a:hover { color: var(--ink); }
+.toc-n { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink); }
+.manifest a.is-current { color: var(--carbon); font-weight: 600; }
+.manifest a.is-current .toc-n { color: var(--carbon); }
+.manifest a.is-current .toc-n:empty::before { content: "\25B8"; }
+
+article { grid-column: 2; min-width: 0; }
+article > p { margin: 0 0 1.3em; }
+article > p:first-child { font-size: 1.375rem; line-height: 1.5; font-weight: 450; }
+strong { font-weight: 680; }
+article code, .routing code {
+  font-family: var(--mono); font-size: .84em; font-weight: 500;
+  background: var(--canary); box-shadow: inset 0 0 0 1px var(--canary-deep);
+  padding: .08em .34em; border-radius: 2px; white-space: nowrap;
+}
+article h2 {
+  position: relative;
+  margin: 3.25em 0 .9em;
+  padding-top: .8rem;
+  border-top: 2px solid var(--ink);
+  font-size: clamp(1.625rem, 2.6vw, 2.125rem);
+  line-height: 1.1;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  font-variation-settings: "wdth" 112;
+  text-wrap: balance;
+}
+article h2 .step {
+  position: absolute; right: 100%; top: .8rem; margin-right: 1rem;
+  display: grid; place-items: center;
+  width: 2.25rem; height: 2.25rem;
+  border: 2px solid var(--ink);
+  font-size: 1.125rem; font-weight: 800; font-variant-numeric: tabular-nums;
+  font-variation-settings: "wdth" 100;
+}
+
+.ledger { list-style: none; margin: 1.6em 0 1.9em; padding: 0; border-bottom: 1px solid var(--rule); }
+.ledger li { position: relative; padding: .95rem 0 .95rem 2.125rem; border-top: 1px solid var(--rule); }
+.ledger li::before {
+  content: ""; position: absolute; left: .125rem; top: 1.55rem;
+  width: .8125rem; height: .8125rem; border: 1.5px solid var(--ink);
+}
+.ledger li strong { color: var(--ink); }
+
+.sheet {
+  margin: 2em -2rem 2.25em;
+  border: 1px solid var(--ink);
+  background: var(--canary);
+  box-shadow: 0 1px 0 var(--ink), 0 10px 24px -18px rgba(23, 25, 30, .45);
+}
+.sheet-bar {
+  display: flex; align-items: center; gap: 1rem;
+  padding: .375rem .375rem .375rem 1rem;
+  border-bottom: 1px solid var(--ink);
+  background: var(--canary-deep);
+  font-size: .6875rem; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+  font-variation-settings: "wdth" 75;
+}
+.sheet-lines { color: var(--canary-ink); font-weight: 500; }
+.copy {
+  margin-left: auto;
+  font: inherit; font-variation-settings: "wdth" 75; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--ink);
+  padding: .375rem .75rem; min-height: 2rem; cursor: pointer;
+  transition: background-color .15s ease-out, color .15s ease-out;
+}
+.copy:hover { background: var(--ink); color: var(--paper); }
+.copy:active { transform: translateY(1px); }
+.copy[data-state="done"] { background: var(--carbon); border-color: var(--carbon); color: #fff; }
+.copy[data-state="error"] { background: var(--paper); border-color: var(--rust); color: var(--rust); }
+.sheet-body {
+  --lh: 1.5rem;
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--lh) - 1px), rgba(111, 102, 73, .16) calc(var(--lh) - 1px), rgba(111, 102, 73, .16) var(--lh));
+  background-position: 0 .875rem;
+}
+.sheet pre {
+  margin: 0; padding: .875rem 0 1rem;
+  font-family: var(--mono); font-size: .875rem; line-height: var(--lh);
+  font-variant-ligatures: none; tab-size: 2;
+}
+.gutter {
+  padding-left: .875rem !important; padding-right: .75rem !important;
+  text-align: right; color: var(--canary-ink); opacity: .75;
+  border-right: 1px dashed rgba(111, 102, 73, .45);
+  user-select: none; font-variant-numeric: tabular-nums;
+}
+.code { overflow-x: auto; padding-left: 1rem !important; padding-right: 1.25rem !important; }
+.code code { font: inherit; background: none; box-shadow: none; padding: 0; white-space: pre; }
+.code:focus-visible { outline-offset: -2px; }
+.t-key { color: var(--ink); font-weight: 500; }
+.t-punct { color: #6a6248; }
+.t-str, .t-num { color: var(--carbon); }
+.t-pin { color: var(--carbon); font-weight: 700; }
+.t-expr { color: var(--rust); }
+.t-flag, .t-cmd { color: var(--ink); font-weight: 700; }
+.t-com { color: #6a6248; font-style: italic; }
+
+.routing { margin: 2.25em -2rem 2.75em; }
+.routing-panels { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--ink); }
+.panel { display: flex; flex-direction: column; min-width: 0; }
+.panel + .panel { border-left: 1px solid var(--ink); }
+.panel svg { display: block; width: 100%; height: auto; padding: 1.25rem 1rem .5rem; }
+.panel figcaption {
+  margin-top: auto; padding: .75rem 1rem .875rem; border-top: 1px solid var(--rule);
+  font-size: .9375rem; line-height: 1.45; color: var(--ink-2);
+}
+.panel figcaption b { color: var(--ink); font-weight: 700; }
+.routing svg text { font-family: var(--sans); font-size: 13px; font-weight: 500; fill: var(--ink); }
+.routing svg text.sm { font-size: 12px; }
+.routing .nodes rect { fill: var(--paper); stroke: var(--ink); stroke-width: 1.25; }
+.routing .edges path { fill: none; }
+.routing .tangle path { stroke: var(--rust); stroke-width: 1.25; opacity: .8; }
+.routing .straight path { stroke: var(--ink); stroke-width: 1.5; }
+.routing .tags text { font-family: var(--mono); font-size: 11px; fill: var(--rust); font-weight: 500; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; }
+.routing .crates rect { fill: var(--canary); stroke: var(--ink); stroke-width: 1.25; }
+.routing .crates path { stroke: var(--ink); stroke-width: 1; }
+.routing .crates text { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+.routing .crates text.crate-k { font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; fill: var(--canary-ink); }
+.routing .consumer rect { fill: var(--carbon); }
+.routing .consumer text { fill: #fff; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.routing .consumer circle { fill: #fff; }
+.routing .consumer-label { font-size: 12px !important; font-weight: 600 !important; }
+.routing.is-armed .edges path { transition: stroke-dashoffset var(--dur, .9s) cubic-bezier(.16, 1, .3, 1) var(--delay, 0s); }
+
+.closing { margin-top: 3.5rem; padding-top: 1rem; border-top: 2px solid var(--ink); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: 1rem; }
+.closing a { font-weight: 600; }
+
+.site-foot { border-top: 2px solid var(--ink); }
+.site-foot .wrap { display: flex; justify-content: space-between; align-items: baseline; gap: 1.5rem; flex-wrap: wrap; padding-top: 1.5rem; padding-bottom: 2.5rem; font-size: .9375rem; color: var(--ink-2); }
+.site-foot .brand { font-size: 1rem; }
+.site-foot p { margin: 0; max-width: 40ch; }
+.site-foot ul { display: flex; gap: 1.5rem; list-style: none; margin: 0; padding: 0; }
+.site-foot a { color: var(--ink); }
+
+@media (min-width: 1181px) {
+  .sheet, .routing { margin-right: calc(-1 * min(12rem, 14vw)); }
+}
+@media (max-width: 1180px) {
+  .layout { grid-template-columns: minmax(0, var(--measure)); justify-content: center; }
+  .manifest { display: none; }
+  article { grid-column: 1; }
+  article h2 .step { position: static; display: inline-grid; vertical-align: .12em; margin: 0 .75rem 0 0; width: 2rem; height: 2rem; font-size: 1rem; }
+  .sheet, .routing { margin-left: 0; margin-right: 0; }
+}
+@media (max-width: 860px) {
+  .lading { grid-template-columns: 1fr 1fr; }
+  .lading > div { border-right: 0; border-bottom: 1px solid var(--ink); }
+  .lading > div:nth-child(odd):not(:last-child) { border-right: 1px solid var(--ink); }
+  .lading > div:last-child { grid-column: 1 / -1; border-bottom: 0; }
+}
+@media (max-width: 640px) {
+  body { font-size: 1.0625rem; line-height: 1.62; }
+  article > p:first-child { font-size: 1.1875rem; }
+  h1 { font-variation-settings: "wdth" 106; letter-spacing: -0.02em; line-height: 1.02; }
+  .site nav ul { gap: 1.25rem; }
+  .sheet, .routing { margin-left: calc(var(--gutter) * -1); margin-right: calc(var(--gutter) * -1); }
+  .sheet { border-left: 0; border-right: 0; }
+  .sheet-body { --lh: 1.375rem; }
+  .sheet pre { font-size: .78125rem; }
+  .gutter { padding-left: .625rem !important; padding-right: .5rem !important; }
+  .code { padding-left: .75rem !important; }
+  .routing-panels { grid-template-columns: 1fr; border-left: 0; border-right: 0; }
+  .panel + .panel { border-left: 0; border-top: 1px solid var(--ink); }
+  .ledger li { padding-left: 1.75rem; }
+  .ledger li::before { top: 1.45rem; }
+}
+@media print {
+  .site nav, .manifest, .copy, .site-foot ul { display: none; }
+  .layout { grid-template-columns: 1fr; }
+  .sheet { box-shadow: none; break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#post">Skip to the post</a>
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="/">Austen Stone</a>
+    <nav aria-label="Site">
+      <ul>
+        <li><a href="/blog" aria-current="page">Blog</a></li>
+        <li><a href="/projects">Projects</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="post">
+  <div class="wrap masthead">
+    <h1>Stop Checking Out Other People's Repos in CI</h1>
+    <dl class="lading">
+      <div><dt>Author</dt><dd>Austen Stone</dd></div>
+      <div><dt>Role</dt><dd>Senior Solutions Engineer @ GitHub</dd></div>
+      <div><dt>Published</dt><dd><time datetime="2026-10-13">October 13, 2026</time></dd></div>
+      <div><dt>Length</dt><dd>10 min read</dd></div>
+      <div><dt>Tags</dt><dd><ul><li>GitHub Actions</li><li>Development</li></ul></dd></div>
+    </dl>
+  </div>
+
+  <div class="wrap layout">
+    <aside class="manifest" aria-label="On this page">
+      <div class="manifest-inner">
+        <h2>On this page</h2>
+        <ol><li><a href="#the-default-everyone-builds"><span class="toc-n"></span><span>The Default Everyone Builds</span></a></li><li><a href="#couple-to-artifacts-and-contracts"><span class="toc-n"></span><span>Couple to Artifacts and Contracts</span></a></li><li><a href="#consume-artifacts-not-source"><span class="toc-n">1</span><span>Consume Artifacts, Not Source</span></a></li><li><a href="#auth-without-pats"><span class="toc-n">2</span><span>Auth Without PATs</span></a></li><li><a href="#platform-owns-the-pipeline"><span class="toc-n">3</span><span>Platform Owns the Pipeline</span></a></li><li><a href="#flip-integration-testing-around"><span class="toc-n">4</span><span>Flip Integration Testing Around</span></a></li><li><a href="#make-the-feedback-loop-fast"><span class="toc-n">5</span><span>Make the Feedback Loop Fast</span></a></li><li><a href="#microservices-same-idea-runtime-edition"><span class="toc-n"></span><span>Microservices: Same Idea, Runtime Edition</span></a></li><li><a href="#start-here"><span class="toc-n"></span><span>Start Here</span></a></li></ol>
+      </div>
+    </aside>
+    <article>
+<p>Almost every enterprise CI conversation I have starts with the same question: &quot;my build needs code from another repo, how do I get access to it?&quot;</p>
+<p>That's the wrong question. And answering it is how you end up with an org-wide PAT checking out 14 repos at <code>main</code> on every build.</p>
+<p>The better question is <strong>what does that repo publish?</strong> And right behind it, <strong>who runs whose tests?</strong> Answer those two and the rest of your pipeline design mostly falls out.</p>
+<h2 id="the-default-everyone-builds"><span class="h-text">The Default Everyone Builds</span></h2>
+<p>It usually looks like this:</p>
+<figure class="sheet" data-lang="yaml">
+  <div class="sheet-bar"><span class="sheet-lang">yaml</span><span class="sheet-lines">6 lines</span><button class="copy" type="button" aria-label="Copy yaml snippet">Copy</button></div>
+  <div class="sheet-body"><pre class="gutter" aria-hidden="true">1
+2
+3
+4
+5
+6</pre><pre class="code"><code><span class="t-punct">- </span><span class="t-key">uses</span><span class="t-punct">:</span> actions/checkout<span class="t-pin">@v7</span>
+  <span class="t-key">with</span><span class="t-punct">:</span>
+    <span class="t-key">repository</span><span class="t-punct">:</span> acme/shared-lib
+    <span class="t-key">ref</span><span class="t-punct">:</span> main
+    <span class="t-key">token</span><span class="t-punct">:</span> <span class="t-expr">${{ secrets.ORG_WIDE_PAT }}</span>
+    <span class="t-key">path</span><span class="t-punct">:</span> shared-lib</code></pre></div>
+</figure>
+<p>Multiply by however many repos your build &quot;needs.&quot; What you've actually built:</p>
+<ul class="ledger"><li><strong>Source coupling.</strong> Your build depends on whatever happens to be on someone else's <code>main</code> right now. They merge, you break, and nobody on their team ever sees the red.</li><li><strong>A non-reproducible build.</strong> Rerun yesterday's job and you get different code. Good luck bisecting.</li><li><strong>A long-lived secret with way too much reach.</strong> That PAT is tied to a person (or a &quot;bot&quot; account someone shares), can usually read far more than this one build needs, and lives forever. Exactly the kind of credential that shows up in supply chain incidents.</li></ul>
+<p>None of this is specific to GitHub Actions. You'd build the same mess in Jenkins.</p>
+<h2 id="couple-to-artifacts-and-contracts"><span class="h-text">Couple to Artifacts and Contracts</span></h2>
+<figure class="routing" id="routing-diagram">
+  <div class="routing-panels">
+    <div class="panel panel-tangle">
+      <svg viewBox="0 0 420 300" role="img" aria-labelledby="tangle-title">
+        <title id="tangle-title">Four repos, each checking out the others' source at main, forming a tangled web.</title>
+        <g class="edges tangle">
+          <path d="M110 70 C 200 20, 260 30, 310 70" />
+          <path d="M110 70 C 150 160, 250 150, 310 230" />
+          <path d="M110 70 C 60 140, 70 190, 110 230" />
+          <path d="M310 70 C 230 120, 180 170, 110 230" />
+          <path d="M310 70 C 370 130, 360 180, 310 230" />
+          <path d="M110 230 C 190 290, 250 280, 310 230" />
+          <path d="M120 82 C 240 110, 160 210, 300 218" />
+          <path d="M300 82 C 170 90, 260 200, 122 218" />
+          <path d="M98 78 C 20 170, 240 300, 316 242" />
+          <path d="M322 78 C 400 160, 180 300, 104 242" />
+        </g>
+        <g class="tags">
+          <text x="210" y="38" text-anchor="middle">@main</text>
+          <text x="54" y="158" text-anchor="middle">@main</text>
+          <text x="366" y="158" text-anchor="middle">@main</text>
+          <text x="210" y="290" text-anchor="middle">@main</text>
+          <text x="210" y="152" text-anchor="middle">@main</text>
+        </g>
+        <g class="nodes">
+          <g transform="translate(110 70)"><rect x="-58" y="-17" width="116" height="34"/><text y="5" text-anchor="middle">shared-lib</text></g>
+          <g transform="translate(310 70)"><rect x="-58" y="-17" width="116" height="34"/><text y="5" text-anchor="middle">shared-proto</text></g>
+          <g transform="translate(110 230)"><rect x="-70" y="-17" width="140" height="34"/><text y="5" text-anchor="middle">checkout-service</text></g>
+          <g transform="translate(310 230)"><rect x="-74" y="-17" width="148" height="34"/><text y="5" text-anchor="middle">platform-workflows</text></g>
+        </g>
+      </svg>
+      <figcaption><b>Before.</b> Every repo checks out every other repo's source at <code>main</code>.</figcaption>
+    </div>
+    <div class="panel panel-pinned">
+      <svg viewBox="0 0 420 300" role="img" aria-labelledby="pinned-title">
+        <title id="pinned-title">Each producer repo builds, tests, and publishes a versioned package; the consumer pins those versions.</title>
+        <g class="edges straight">
+          <path d="M128 60 H 176" /><path d="M128 150 H 176" /><path d="M128 240 H 176" />
+          <path d="M300 60 C 330 60, 330 150, 352 150" /><path d="M300 150 H 352" /><path d="M300 240 C 330 240, 330 150, 352 150" />
+        </g>
+        <g class="nodes">
+          <g transform="translate(66 60)"><rect x="-58" y="-17" width="116" height="34"/><text y="5" text-anchor="middle">shared-lib</text></g>
+          <g transform="translate(66 150)"><rect x="-58" y="-17" width="116" height="34"/><text y="5" text-anchor="middle">shared-proto</text></g>
+          <g transform="translate(66 240)"><rect x="-58" y="-17" width="116" height="34"/><text y="5" text-anchor="middle" class="sm">platform-wf</text></g>
+        </g>
+        <g class="crates">
+          <g transform="translate(238 60)"><rect x="-62" y="-22" width="124" height="44"/><path d="M-62 -8 H 62"/><text y="13" text-anchor="middle">2.4.0</text><text y="-12" class="crate-k" text-anchor="middle">package</text></g>
+          <g transform="translate(238 150)"><rect x="-62" y="-22" width="124" height="44"/><path d="M-62 -8 H 62"/><text y="13" text-anchor="middle">proto</text><text y="-12" class="crate-k" text-anchor="middle">contract</text></g>
+          <g transform="translate(238 240)"><rect x="-62" y="-22" width="124" height="44"/><path d="M-62 -8 H 62"/><text y="13" text-anchor="middle">@v3</text><text y="-12" class="crate-k" text-anchor="middle">workflow</text></g>
+        </g>
+        <g class="consumer" transform="translate(386 150)">
+          <rect x="-34" y="-58" width="68" height="116"/>
+          <text y="-30" text-anchor="middle" class="sm">pins</text>
+          <circle cx="0" cy="-8" r="4"/><circle cx="0" cy="10" r="4"/><circle cx="0" cy="28" r="4"/>
+        </g>
+        <text x="386" y="230" text-anchor="middle" class="consumer-label">checkout-</text>
+        <text x="386" y="246" text-anchor="middle" class="consumer-label">service</text>
+      </svg>
+      <figcaption><b>After.</b> Each repo builds, tests, and publishes a versioned package. Consumers pin the version.</figcaption>
+    </div>
+  </div>
+</figure>
+<p>Left side, every repo is part of every other repo's build. Right side, each repo has one job: build, test, publish a versioned thing. Consumers pin a version. Upgrades are PRs you can review and revert.</p>
+<p>Honestly this is also why monorepo vs polyrepo is mostly the wrong argument. Big monorepos work because everything builds and tests together at one commit. Polyrepos work when repos talk through versioned contracts. What doesn't work is polyrepos pretending to be a monorepo by cloning each other at <code>main</code>. You get the costs of both and the benefits of neither.</p>
+<h2 id="consume-artifacts-not-source"><span class="step" aria-hidden="true">1</span><span class="h-text"><span class="sr">1. </span>Consume Artifacts, Not Source</span></h2>
+<p>If another team's code is something you build against, it should be a package. npm, Maven, NuGet, a container image, whatever fits. GitHub Packages and the Container registry handle this fine, and the producer's workflow can push with <code>GITHUB_TOKEN</code> and <code>packages: write</code>. Consumers read with <code>GITHUB_TOKEN</code> too, once you grant their repos access to the package. No extra credentials.</p>
+<p>Consumers pin an exact version and let Dependabot open the bump PRs. Point it at your private registries and group the updates so you don't drown in them. Now every upgrade runs your full CI before it lands, which is the whole point.</p>
+<p>Sometimes you do need source (codegen, a vendored tool, whatever). Fine. Pin it to a full commit SHA, and if it matters enough, vendor it into your repo. Large monorepos do exactly this with third-party code for a reason. Never float on <code>main</code>.</p>
+<h2 id="auth-without-pats"><span class="step" aria-hidden="true">2</span><span class="h-text"><span class="sr">2. </span>Auth Without PATs</span></h2>
+<p>Once you're consuming artifacts, most cross-repo access disappears. For what's left, stop minting PATs.</p>
+<ul class="ledger"><li><strong>Sharing actions and reusable workflows</strong> doesn't need a token at all. Turn on access for private repos or internal repos across your enterprise in the repo's Actions settings.</li><li><strong>Cloud credentials</strong> go through OIDC. No stored keys.</li><li><strong>Actual cross-repo API calls</strong> use a GitHub App installation token, scoped to the exact repos and permissions the job needs:</li></ul>
+<figure class="sheet" data-lang="yaml">
+  <div class="sheet-bar"><span class="sheet-lang">yaml</span><span class="sheet-lines">8 lines</span><button class="copy" type="button" aria-label="Copy yaml snippet">Copy</button></div>
+  <div class="sheet-body"><pre class="gutter" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8</pre><pre class="code"><code><span class="t-punct">- </span><span class="t-key">uses</span><span class="t-punct">:</span> actions/create-github-app-token<span class="t-pin">@v3</span>
+  <span class="t-key">id</span><span class="t-punct">:</span> app-token
+  <span class="t-key">with</span><span class="t-punct">:</span>
+    <span class="t-key">client-id</span><span class="t-punct">:</span> <span class="t-expr">${{ vars.CI_APP_CLIENT_ID }}</span>
+    <span class="t-key">private-key</span><span class="t-punct">:</span> <span class="t-expr">${{ secrets.CI_APP_PRIVATE_KEY }}</span>
+    <span class="t-key">owner</span><span class="t-punct">:</span> <span class="t-expr">${{ github.repository_owner }}</span>
+    <span class="t-key">repositories</span><span class="t-punct">:</span> shared-proto
+    <span class="t-key">permission-contents</span><span class="t-punct">:</span> read</code></pre></div>
+</figure>
+<p>Yes, the private key is still a secret. But it isn't tied to a human, it can only mint tokens that expire in an hour, and every token is scoped to what you wrote down in the workflow. That's a much smaller blast radius than a PAT someone made in 2021 with <code>repo</code> scope.</p>
+<h2 id="platform-owns-the-pipeline"><span class="step" aria-hidden="true">3</span><span class="h-text"><span class="sr">3. </span>Platform Owns the Pipeline</span></h2>
+<p>If 400 repos each hand-roll their own build, every pipeline fix is 400 PRs.</p>
+<p>Put the golden path in a central repo as reusable workflows. App repos call it with inputs and stay tiny:</p>
+<figure class="sheet" data-lang="yaml">
+  <div class="sheet-bar"><span class="sheet-lang">yaml</span><span class="sheet-lines">15 lines</span><button class="copy" type="button" aria-label="Copy yaml snippet">Copy</button></div>
+  <div class="sheet-body"><pre class="gutter" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15</pre><pre class="code"><code><span class="t-key">name</span><span class="t-punct">:</span> CI
+<span class="t-key">on</span><span class="t-punct">:</span>
+  <span class="t-key">pull_request</span><span class="t-punct">:</span>
+  <span class="t-key">merge_group</span><span class="t-punct">:</span>
+
+<span class="t-key">permissions</span><span class="t-punct">:</span>
+  <span class="t-key">contents</span><span class="t-punct">:</span> read
+  <span class="t-key">packages</span><span class="t-punct">:</span> write
+  <span class="t-key">id-token</span><span class="t-punct">:</span> write
+
+<span class="t-key">jobs</span><span class="t-punct">:</span>
+  <span class="t-key">ci</span><span class="t-punct">:</span>
+    <span class="t-key">uses</span><span class="t-punct">:</span> acme/platform-workflows/.github/workflows/node-service.yml<span class="t-pin">@v3</span>
+    <span class="t-key">with</span><span class="t-punct">:</span>
+      <span class="t-key">node-version</span><span class="t-punct">:</span><span class="t-num"> 24</span></code></pre></div>
+</figure>
+<p>The platform team versions it, ships improvements once, and every repo gets them on the next bump. For the stuff that isn't optional (security scans, provenance, policy checks), enforce it with org-level ruleset workflows so it runs whether the app repo calls it or not.</p>
+<h2 id="flip-integration-testing-around"><span class="step" aria-hidden="true">4</span><span class="h-text"><span class="sr">4. </span>Flip Integration Testing Around</span></h2>
+<p>This is the one that changes the most, and the one almost nobody does.</p>
+<p>The default: the consumer clones its dependencies and runs integration tests. So when <code>shared-lib</code> merges a breaking change, the failure shows up later, in somebody else's repo, owned by somebody who didn't make the change.</p>
+<p>Flip it. <strong>The dependency triggers the consumer's tests.</strong> When a PR opens on <code>shared-lib</code>, it publishes a preview version (say <code>2.4.0-pr.123</code>) and kicks off each known consumer's test suite with <code>workflow_dispatch</code> or <code>repository_dispatch</code>. The consumer runs its tests against that preview, then reports back by creating a check run on the producer's PR.</p>
+<p>The producer side is one step with an App token that has <code>permission-actions: write</code> on the consumer:</p>
+<figure class="sheet" data-lang="bash">
+  <div class="sheet-bar"><span class="sheet-lang">bash</span><span class="sheet-lines">4 lines</span><button class="copy" type="button" aria-label="Copy bash snippet">Copy</button></div>
+  <div class="sheet-body"><pre class="gutter" aria-hidden="true">1
+2
+3
+4</pre><pre class="code"><code><span class="t-cmd">gh</span> workflow run contract-tests.yml <span class="t-flag">-R</span> acme/checkout-service <span class="t-punct">\</span>
+  <span class="t-flag">-f</span> producer-repo=acme/shared-lib <span class="t-punct">\</span>
+  <span class="t-flag">-f</span> producer-sha=<span class="t-str">&quot;$PR_HEAD_SHA&quot;</span> <span class="t-punct">\</span>
+  <span class="t-flag">-f</span> version=2.4.0-pr.123</code></pre></div>
+</figure>
+<p>The consumer side:</p>
+<figure class="sheet" data-lang="yaml">
+  <div class="sheet-bar"><span class="sheet-lang">yaml</span><span class="sheet-lines">53 lines</span><button class="copy" type="button" aria-label="Copy yaml snippet">Copy</button></div>
+  <div class="sheet-body"><pre class="gutter" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53</pre><pre class="code"><code><span class="t-key">name</span><span class="t-punct">:</span> Contract tests
+<span class="t-key">on</span><span class="t-punct">:</span>
+  <span class="t-key">workflow_dispatch</span><span class="t-punct">:</span>
+    <span class="t-key">inputs</span><span class="t-punct">:</span>
+      <span class="t-key">producer-repo</span><span class="t-punct">:</span>
+        <span class="t-key">required</span><span class="t-punct">:</span><span class="t-num"> true</span>
+      <span class="t-key">producer-sha</span><span class="t-punct">:</span>
+        <span class="t-key">required</span><span class="t-punct">:</span><span class="t-num"> true</span>
+      <span class="t-key">version</span><span class="t-punct">:</span>
+        <span class="t-key">required</span><span class="t-punct">:</span><span class="t-num"> true</span>
+
+<span class="t-key">permissions</span><span class="t-punct">:</span>
+  <span class="t-key">contents</span><span class="t-punct">:</span> read
+  <span class="t-key">packages</span><span class="t-punct">:</span> read
+
+<span class="t-key">jobs</span><span class="t-punct">:</span>
+  <span class="t-key">test</span><span class="t-punct">:</span>
+    <span class="t-key">runs-on</span><span class="t-punct">:</span> ubuntu-latest
+    <span class="t-key">steps</span><span class="t-punct">:</span>
+      <span class="t-punct">- </span><span class="t-key">uses</span><span class="t-punct">:</span> actions/checkout<span class="t-pin">@v7</span>
+      <span class="t-punct">- </span><span class="t-key">uses</span><span class="t-punct">:</span> actions/setup-node<span class="t-pin">@v7</span>
+        <span class="t-key">with</span><span class="t-punct">:</span>
+          <span class="t-key">node-version</span><span class="t-punct">:</span><span class="t-num"> 24</span>
+          <span class="t-key">registry-url</span><span class="t-punct">:</span> https://npm.pkg.github.com
+      <span class="t-punct">- </span><span class="t-key">run</span><span class="t-punct">:</span> npm ci
+      <span class="t-punct">- </span><span class="t-key">run</span><span class="t-punct">:</span> npm install <span class="t-str">&quot;@acme/shared-lib@$VERSION&quot;</span>
+        <span class="t-key">env</span><span class="t-punct">:</span>
+          <span class="t-key">VERSION</span><span class="t-punct">:</span> <span class="t-expr">${{ inputs.version }}</span>
+          <span class="t-key">NODE_AUTH_TOKEN</span><span class="t-punct">:</span> <span class="t-expr">${{ secrets.GITHUB_TOKEN }}</span>
+      <span class="t-punct">- </span><span class="t-key">run</span><span class="t-punct">:</span> npm test
+
+      <span class="t-punct">- </span><span class="t-key">uses</span><span class="t-punct">:</span> actions/create-github-app-token<span class="t-pin">@v3</span>
+        <span class="t-key">if</span><span class="t-punct">:</span> <span class="t-expr">${{ !cancelled() }}</span>
+        <span class="t-key">id</span><span class="t-punct">:</span> app-token
+        <span class="t-key">with</span><span class="t-punct">:</span>
+          <span class="t-key">client-id</span><span class="t-punct">:</span> <span class="t-expr">${{ vars.CI_APP_CLIENT_ID }}</span>
+          <span class="t-key">private-key</span><span class="t-punct">:</span> <span class="t-expr">${{ secrets.CI_APP_PRIVATE_KEY }}</span>
+          <span class="t-key">owner</span><span class="t-punct">:</span> <span class="t-expr">${{ github.repository_owner }}</span>
+          <span class="t-key">repositories</span><span class="t-punct">:</span> shared-lib
+          <span class="t-key">permission-checks</span><span class="t-punct">:</span> write
+      <span class="t-punct">- </span><span class="t-key">if</span><span class="t-punct">:</span> <span class="t-expr">${{ !cancelled() }}</span>
+        <span class="t-key">env</span><span class="t-punct">:</span>
+          <span class="t-key">GH_TOKEN</span><span class="t-punct">:</span> <span class="t-expr">${{ steps.app-token.outputs.token }}</span>
+          <span class="t-key">PRODUCER_REPO</span><span class="t-punct">:</span> <span class="t-expr">${{ inputs.producer-repo }}</span>
+          <span class="t-key">PRODUCER_SHA</span><span class="t-punct">:</span> <span class="t-expr">${{ inputs.producer-sha }}</span>
+          <span class="t-key">CONCLUSION</span><span class="t-punct">:</span> <span class="t-expr">${{ job.status == 'success' &amp;&amp; 'success' || 'failure' }}</span>
+        <span class="t-key">run</span><span class="t-punct">:</span><span class="t-punct"> |</span>
+<span class="t-cmd">          gh</span> api <span class="t-str">&quot;repos/$PRODUCER_REPO/check-runs&quot;</span> <span class="t-punct">\</span>
+            <span class="t-flag">-f</span> name=<span class="t-str">&quot;consumer / $GITHUB_REPOSITORY&quot;</span> <span class="t-punct">\</span>
+            <span class="t-flag">-f</span> head_sha=<span class="t-str">&quot;$PRODUCER_SHA&quot;</span> <span class="t-punct">\</span>
+            <span class="t-flag">-f</span> status=completed <span class="t-punct">\</span>
+            <span class="t-flag">-f</span> conclusion=<span class="t-str">&quot;$CONCLUSION&quot;</span> <span class="t-punct">\</span>
+            <span class="t-flag">-f</span> details_url=<span class="t-str">&quot;$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID&quot;</span></code></pre></div>
+</figure>
+<p>Why an App and not <code>GITHUB_TOKEN</code>? <code>GITHUB_TOKEN</code> is scoped to the repo it runs in, and write access to checks is only available to GitHub Apps. Bonus: make that check required on the producer and set your App as the expected source, so nobody can fake it with a random status.</p>
+<p>Now the breaking change goes red <strong>on the PR that introduced it</strong>, in front of the person who wrote it, before it merges. That's the entire value of integration testing, delivered to the right person.</p>
+<h2 id="make-the-feedback-loop-fast"><span class="step" aria-hidden="true">5</span><span class="h-text"><span class="sr">5. </span>Make the Feedback Loop Fast</span></h2>
+<p>All of this only works if CI is fast enough that people don't route around it.</p>
+<ul class="ledger"><li><strong>Merge queue.</strong> Add the <code>merge_group</code> trigger and let the queue test PRs together against the real tip of <code>main</code>. GitHub runs its own large monorepo on it: over 500 engineers merge 2,500 PRs a month through merge queue, with a 33% drop in average time to ship.</li><li><strong>Don't redo green work.</strong> Path filters, caching, and build tools that know what changed. If nothing in a service changed, don't test it again.</li><li><strong>Bigger machines.</strong> Larger GitHub-hosted runners are a <code>runs-on</code> change. Your engineers waiting 20 minutes on a 2-core box costs way more than the compute.</li></ul>
+<h2 id="microservices-same-idea-runtime-edition"><span class="h-text">Microservices: Same Idea, Runtime Edition</span></h2>
+<p>Microservices make this more obvious, not less. Services talk to each other at <strong>runtime</strong>, over the network. There's no reason one service's build should touch another service's source. Each one should build, test, and deploy on its own.</p>
+<p>What they share is a contract, so treat the contract like the artifact:</p>
+<ul class="ledger"><li><strong>Publish API contracts as packages.</strong> Protobuf or OpenAPI specs, versioned and pinned like any other dependency.</li><li><strong>Break the build in the producer's PR.</strong> <code>buf breaking</code> for protobuf, or consumer-driven contracts with Pact, so removing a field fails CI on the service that removed it.</li><li><strong>Change schemas in two steps.</strong> Expand, migrate, contract. Add the new field, move consumers over, then remove the old one.</li><li><strong>Decouple deploy from release.</strong> Ship dark behind feature flags so deploying a service doesn't mean every other service has to be ready.</li><li><strong>Ephemeral environments for E2E smoke.</strong> Spin up a real environment per PR or per merge group for a handful of end-to-end checks, gated with environments. Not on every push, and not as your main line of defense.</li></ul>
+<p>And the honest diagnosis. If service A can't ship unless B and C ship with it, that's a distributed monolith. A monolith with network hops in the middle. Either fix the contracts so they can ship independently, or put them in one repo and build them together. Separate repos only pay for themselves if the things in them actually deploy separately.</p>
+<h2 id="start-here"><span class="h-text">Start Here</span></h2>
+<p>Pick your worst build, the one with the most <code>repository:</code> lines in a checkout step. For each one, ask what that repo should be publishing instead. That list is your migration plan.</p>
+      <div class="closing">
+        <a href="/blog">More posts</a>
+        <a href="#post">Back to top</a>
+      </div>
+    </article>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <a class="brand" href="/">Austen Stone</a>
+    <p>Writing about GitHub Actions, CI/CD, AI agents, and automation.</p>
+    <ul>
+      <li><a href="/blog">Blog</a></li>
+      <li><a href="/projects">Projects</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(() => {
+  document.querySelectorAll('.sheet').forEach((sheet) => {
+    const button = sheet.querySelector('.copy');
+    const code = sheet.querySelector('.code');
+    code.tabIndex = 0;
+    code.setAttribute('aria-label', `${sheet.dataset.lang} code`);
+    let timer;
+    const flash = (state, label) => {
+      button.dataset.state = state;
+      button.textContent = label;
+      clearTimeout(timer);
+      timer = setTimeout(() => { delete button.dataset.state; button.textContent = 'Copy'; }, 1800);
+    };
+    button.addEventListener('click', async () => {
+      const text = code.innerText.replace(/\n$/, '');
+      try {
+        await navigator.clipboard.writeText(text);
+        flash('done', 'Copied');
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const sel = getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        flash('error', 'Selected');
+      }
+    });
+  });
+
+  const links = [...document.querySelectorAll('.manifest a')];
+  const heads = links.map((a) => document.getElementById(a.hash.slice(1))).filter(Boolean);
+  if ('IntersectionObserver' in window && heads.length) {
+    const setCurrent = () => {
+      const line = innerHeight * 0.3;
+      let current = heads[0];
+      heads.forEach((h) => { if (h.getBoundingClientRect().top < line) current = h; });
+      if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) current = heads[heads.length - 1];
+      links.forEach((a) => {
+        const on = a.hash === `#${current.id}`;
+        a.classList.toggle('is-current', on);
+        on ? a.setAttribute('aria-current', 'location') : a.removeAttribute('aria-current');
+      });
+    };
+    addEventListener('scroll', () => requestAnimationFrame(setCurrent), { passive: true });
+    setCurrent();
+  }
+
+  const fig = document.getElementById('routing-diagram');
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (fig && !calm && 'IntersectionObserver' in window && fig.getBoundingClientRect().top > innerHeight) {
+    const tangle = [...fig.querySelectorAll('.tangle path')];
+    const straight = [...fig.querySelectorAll('.straight path')];
+    [...tangle, ...straight].forEach((p) => {
+      const len = Math.ceil(p.getTotalLength());
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = len;
+    });
+    tangle.forEach((p, i) => {
+      p.style.setProperty('--delay', `${((i * 7) % 5) * 0.11}s`);
+      p.style.setProperty('--dur', `${0.7 + ((i * 3) % 4) * 0.22}s`);
+    });
+    straight.forEach((p, i) => {
+      p.style.setProperty('--delay', `${0.55 + (i % 3) * 0.08 + (i > 2 ? 0.35 : 0)}s`);
+      p.style.setProperty('--dur', '.6s');
+    });
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      fig.classList.add('is-armed');
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        [...tangle, ...straight].forEach((p) => { p.style.strokeDashoffset = 0; });
+      }));
+      io.disconnect();
+    }, { threshold: 0.35 });
+    io.observe(fig);
+  }
+})();
+</script>
+</body>
+</html>
